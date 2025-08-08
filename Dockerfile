@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.3-fpm
 
 # Instalar extensiones necesarias para Laravel + PostgreSQL
 RUN apt-get update && apt-get install -y \
@@ -12,6 +12,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
+# Copia y prepara Laravel
+#COPY ./src /var/www
+
 # Copiar solo composer.* primero para aprovechar la cache de Docker
 COPY composer.json composer.lock ./
 
@@ -20,10 +23,10 @@ RUN composer install --ignore-platform-reqs --no-interaction --prefer-dist --no-
 
 # Ahora copiamos todo el código
 COPY . .
+# Instala dependencias ignorando la comprobación de root
+#RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --ignore-platform-reqs --no-interaction --prefer-dist \
+ #   && chmod -R 775 storage bootstrap/cache \
+  #  && chown -R www-data:www-data .
 
-# Ejecutar de nuevo composer pero esta vez sí scripts y autoloader
-RUN composer dump-autoload \
-    && chmod -R 775 storage bootstrap/cache \
-    && chown -R www-data:www-data .
 
 CMD ["php-fpm"]
