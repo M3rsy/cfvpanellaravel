@@ -1,23 +1,29 @@
 FROM php:8.2-fpm
 
-# Instala dependencias del sistema
+# Instalar extensiones necesarias para Laravel + PostgreSQL
 RUN apt-get update && apt-get install -y \
-    git curl zip unzip libpq-dev libzip-dev \
-    && docker-php-ext-install pdo pdo_pgsql zip
+    git curl zip unzip libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev locales \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql zip gd bcmath \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instala Composer
+# Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Setea el directorio de trabajo
 WORKDIR /var/www
 
-# Copia los archivos del proyecto
+# Copiar solo composer.* primero para aprovechar la cache de Docker
+COPY composer.json composer.lock ./
+
+# Instalar dependencias de PHP sin ejecutar scripts de Laravel
+RUN composer install --ignore-platform-reqs --no-interaction --prefer-dist --no-scripts --no-autoloader
+
+# Ahora copiamos todo el código
 COPY . .
 
-# Instala dependencias de Laravel
-RUN composer install --ignore-platform-reqs --no-interaction --prefer-dist \
+# Ejecutar de nuevo composer pero esta vez sí scripts y autoloader
+RUN composer dump-autoload \
     && chmod -R 775 storage bootstrap/cache \
     && chown -R www-data:www-data .
 
-EXPOSE 9000
 CMD ["php-fpm"]
